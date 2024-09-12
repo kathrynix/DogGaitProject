@@ -1,5 +1,5 @@
 import tensorflow as tf
-from keras.preprocessing.image import ImageDataGenerator
+from keras.src.legacy.preprocessing.image import ImageDataGenerator
 from keras.applications import MobileNetV2
 from keras.layers import Dense, GlobalAveragePooling2D
 from keras.models import Model
