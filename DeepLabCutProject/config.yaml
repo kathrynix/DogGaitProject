@@ -1,0 +1,13 @@
+# Example content for a DeepLabCut config.yaml file
+project:
+  name: 'DogGaitProject'
+  author: 'DogGaitTeam'
+  date: '2024-09-16'
+  video_path: 'Dog_videos/IMG_5260.MOV'
+
+training:
+  iteration: 1000
+  batch_size: 8
+  snapshot_prefix: 'snapshot'
+  TrainingFraction: 0.8
+  shuffle: 1
