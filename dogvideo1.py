@@ -11,11 +11,13 @@ mp_pose = mp.solutions.pose
 pose = mp_pose.Pose()
 
 # Initialize drawing utilities
+# It's responsible for the visual representation of the pose detection (the red dots and white lines)
 mp_drawing = mp.solutions.drawing_utils
 
 def analyze_gait(landmarks):
     # Placeholder function to analyze gait
     # Compare positions of legs, calculate angles between joints, etc.
+
     left_leg = landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value]
     right_leg = landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value]
 
@@ -33,12 +35,15 @@ while cap.isOpened():
     # Convert the frame to RGB
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-    # Get pose landmarks
+    # Image is processed to identify pose landmarks
     result = pose.process(rgb_frame)
 
     if result.pose_landmarks:
-        # Draw landmarks on the frame
+        # Draw landmarks on the frame:
+        # result.pose_landmarks contains the coordinates of the detected landmarks/keypoints
+        # mp_pose.POSE_CONNECTIONS defines which landmarks to connect with lines
         mp_drawing.draw_landmarks(frame, result.pose_landmarks, mp_pose.POSE_CONNECTIONS)
+
 
         # Analyze gait based on landmarks
         status = analyze_gait(result.pose_landmarks.landmark)
