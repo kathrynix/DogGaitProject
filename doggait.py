@@ -1,5 +1,5 @@
 import tensorflow as tf
-from keras.src.legacy.preprocessing.image import ImageDataGenerator
+from keras.preprocessing.image import ImageDataGenerator
 from keras.applications import MobileNetV2
 from keras.layers import Dense, GlobalAveragePooling2D
 from keras.models import Model
@@ -59,7 +59,8 @@ def classify_image(img_path, model):
     
     # Predict
     prediction = model.predict(img_array)
-    print(prediction[0]) # chance that the image is a dog
+    # chance that the image is a dog
+    print(f'Chance image is a dog: {prediction[0] * 100}')
     if prediction[0] > 0.5:
         return 'a dog'
     else:

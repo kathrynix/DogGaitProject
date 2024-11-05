@@ -1,10 +1,8 @@
-# Nicer layout but only detects humans
-
 import cv2
 import mediapipe as mp
 
 # Initialize video capture
-cap = cv2.VideoCapture('Dog_videos/IMG_5260.MOV')
+cap = cv2.VideoCapture('Dog_videos/IMG_5263.MOV')
 
 # Initialize MediaPipe pose detection
 mp_pose = mp.solutions.pose
@@ -13,17 +11,25 @@ pose = mp_pose.Pose()
 # Initialize drawing utilities
 mp_drawing = mp.solutions.drawing_utils
 
+def is_spine_horizontal(landmarks):
+    # Using LEFT_SHOULDER and LEFT_HIP to approximate spine alignment
+    left_shoulder = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value]
+    left_hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP.value]
+
+    # Calculate the vertical and horizontal distances
+    vertical_spine_dist = abs(left_shoulder.y - left_hip.y)
+    horizontal_spine_dist = abs(left_shoulder.x - left_hip.x)
+
+    # Return True if the spine is horizontal
+    return horizontal_spine_dist > vertical_spine_dist
+
 def analyze_gait(landmarks):
-    # Placeholder function to analyze gait
-    # Compare positions of legs, calculate angles between joints, etc.
+    # Simple gait analysis: check for uneven leg height
     left_leg = landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value]
     right_leg = landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value]
 
-    # Simple rule: if the legs' movement is significantly uneven, the dog may be limping
-    # You can make this much more sophisticated with detailed joint analysis
-    if abs(left_leg.y - right_leg.y) > 0.1:  # arbitrary threshold for demo purposes
-        return "Injured"
-    return "Healthy"
+    # Arbitrary threshold for demo purposes
+    return "Injured" if abs(left_leg.y - right_leg.y) > 0.1 else "Healthy"
 
 while cap.isOpened():
     ret, frame = cap.read()
@@ -37,17 +43,21 @@ while cap.isOpened():
     result = pose.process(rgb_frame)
 
     if result.pose_landmarks:
-        # Draw landmarks on the frame
-        mp_drawing.draw_landmarks(frame, result.pose_landmarks, mp_pose.POSE_CONNECTIONS)
+        # Check if the spine is horizontal
+        if is_spine_horizontal(result.pose_landmarks.landmark):
+            # Draw landmarks only if spine is horizontal
+            mp_drawing.draw_landmarks(frame, result.pose_landmarks, mp_pose.POSE_CONNECTIONS)
+            cv2.putText(frame, "Spine: Horizontal", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
 
-        # Analyze gait based on landmarks
-        status = analyze_gait(result.pose_landmarks.landmark)
-
-        # Display the status on the video
-        cv2.putText(frame, f'Status: {status}', (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+            # Perform gait analysis and display the result
+            gait_status = analyze_gait(result.pose_landmarks.landmark)
+            cv2.putText(frame, f'Gait: {gait_status}', (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+        else:
+            # Indicate that the spine is not horizontal
+            cv2.putText(frame, "Spine: Not Horizontal", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
 
     # Display the video
-    cv2.imshow('Dog Gait Analysis', frame)
+    cv2.imshow('Dog Spine and Gait Analysis', frame)
 
     if cv2.waitKey(10) & 0xFF == ord('q'):
         break
