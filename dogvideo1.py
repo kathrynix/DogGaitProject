@@ -9,6 +9,7 @@ mp_pose = mp.solutions.pose
 pose = mp_pose.Pose()
 
 # Initialize drawing utilities
+# It's responsible for the visual representation of the pose detection (the red dots and white lines)
 mp_drawing = mp.solutions.drawing_utils
 
 def is_spine_horizontal(landmarks):
@@ -39,7 +40,7 @@ while cap.isOpened():
     # Convert the frame to RGB
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-    # Get pose landmarks
+    # Image is processed to identify pose landmarks
     result = pose.process(rgb_frame)
 
     if result.pose_landmarks:
