@@ -117,6 +117,14 @@ def process_video():
     print(f"\nTotal Healthy Gait Duration: {total_healthy_time:.2f} seconds")
     print(f"Total Unhealthy Gait Duration: {total_unhealthy_time:.2f} seconds")
 
+    # final determination
+    total_time = total_healthy_time + total_unhealthy_time
+    unhealthy_fraction = total_unhealthy_time / total_time
+    if unhealthy_fraction <= 0.2:
+        print('The dog is healthy')
+    else:
+        print('The dog is injured. Please see a veterinarian for further review.')
+
     cap.release()
     cv2.destroyAllWindows()
 
