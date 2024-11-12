@@ -48,6 +48,10 @@ def process_video():
     # Variables to accumulate total time in each state
     total_healthy_time = 0
     total_unhealthy_time = 0
+    total_spine_horizontal_time = 0  # Track total cumulative time the spine is horizontal
+
+    # Variables to track whether the spine is currently horizontal
+    spine_horizontal_start_time = None
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -66,6 +70,10 @@ def process_video():
         if result.pose_landmarks:
             # Check if the spine is horizontal
             if is_spine_horizontal(result.pose_landmarks.landmark):
+                # Start tracking time when the spine first becomes horizontal
+                if spine_horizontal_start_time is None:
+                    spine_horizontal_start_time = time.time()
+                
                 # Draw landmarks and connections
                 mp_drawing.draw_landmarks(frame_resized, result.pose_landmarks, mp_pose.POSE_CONNECTIONS)
                 cv2.putText(frame_resized, "Spine: Horizontal", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
@@ -76,7 +84,7 @@ def process_video():
 
                 # Track the time spent in each gait status
                 if gait_status == "Healthy":
-                    if last_gait_status != "Healthy" :
+                    if last_gait_status != "Healthy":
                         # If switching to healthy gait, record time spent in previous state
                         if unhealthy_start_time:
                             unhealthy_duration = time.time() - unhealthy_start_time
@@ -94,6 +102,11 @@ def process_video():
                     last_gait_status = "Injured"
 
             else:
+                # If spine is no longer horizontal, accumulate the time spent horizontal
+                if spine_horizontal_start_time is not None:
+                    total_spine_horizontal_time += time.time() - spine_horizontal_start_time
+                    spine_horizontal_start_time = None  # Reset the timer once it stops being horizontal
+
                 # Indicate that the spine is not horizontal
                 cv2.putText(frame_resized, "Spine: Not Horizontal", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
 
@@ -115,31 +128,33 @@ def process_video():
         if cv2.waitKey(10) & 0xFF == ord('q'):
             break
 
-    # Final update when video ends
-    if healthy_start_time:
-        healthy_duration = time.time() - healthy_start_time
-        total_healthy_time += healthy_duration
-
-    if unhealthy_start_time:
-        unhealthy_duration = time.time() - unhealthy_start_time
-        total_unhealthy_time += unhealthy_duration
+    # Final update when video ends (if the spine was horizontal at the end of the video)
+    if spine_horizontal_start_time is not None:
+        total_spine_horizontal_time += time.time() - spine_horizontal_start_time
 
     # Print total time spent in each gait state
     print(f"\nTotal Healthy Gait Duration: {total_healthy_time:.2f} seconds")
     print(f"Total Unhealthy Gait Duration: {total_unhealthy_time:.2f} seconds")
 
-    # final determination
-    total_time = total_healthy_time + total_unhealthy_time
-    try:
-        unhealthy_fraction = total_unhealthy_time / total_time
-    except ZeroDivisionError:
-        print("No dog was detected. Please try again.")
-        exit()
+    # Print total time the spine was horizontal
+    print(f"Total Time Dog Detected: {total_spine_horizontal_time:.2f} seconds")
+
+    # Check if cumulative spine horizontal time is less than 5 seconds
+    if total_spine_horizontal_time < 5:
+        print("Inconclusive: Dog must be detected for a longer period of time to make analysis.")
     else:
-        if unhealthy_fraction <= 0.2:
-            print('The dog is healthy')
+        # Final determination based on gait analysis
+        total_time = total_healthy_time + total_unhealthy_time
+        try:
+            unhealthy_fraction = total_unhealthy_time / total_time
+        except ZeroDivisionError:
+            print("No dog was detected. Please try again.")
+            exit()
         else:
-            print('The dog is injured. Please see a veterinarian for further review.')
+            if unhealthy_fraction <= 0.2:
+                print('The dog is healthy')
+            else:
+                print('The dog is injured. Please see a veterinarian for further review.')
 
     cap.release()
     cv2.destroyAllWindows()
