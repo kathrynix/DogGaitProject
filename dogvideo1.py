@@ -3,7 +3,7 @@ import mediapipe as mp
 import time
 
 # Initialize video capture
-cap = cv2.VideoCapture('Dog_videos/IMG_5263.MOV')
+cap = cv2.VideoCapture('Dog_videos/IMG_5260.MOV')
 
 # Initialize MediaPipe pose detection
 mp_pose = mp.solutions.pose
@@ -119,11 +119,16 @@ def process_video():
 
     # final determination
     total_time = total_healthy_time + total_unhealthy_time
-    unhealthy_fraction = total_unhealthy_time / total_time
-    if unhealthy_fraction <= 0.2:
-        print('The dog is healthy')
+    try:
+        unhealthy_fraction = total_unhealthy_time / total_time
+    except ZeroDivisionError:
+        print("No dog was detected. Please try again.")
+        exit()
     else:
-        print('The dog is injured. Please see a veterinarian for further review.')
+        if unhealthy_fraction <= 0.2:
+            print('The dog is healthy')
+        else:
+            print('The dog is injured. Please see a veterinarian for further review.')
 
     cap.release()
     cv2.destroyAllWindows()
