@@ -3,7 +3,7 @@ import mediapipe as mp
 import time
 
 # Initialize video capture
-cap = cv2.VideoCapture('Dog_videos/IMG_5260.MOV')
+cap = cv2.VideoCapture('Dog_videos/IMG_5264.MOV')
 
 # Initialize MediaPipe pose detection
 mp_pose = mp.solutions.pose
@@ -76,7 +76,7 @@ def process_video():
 
                 # Track the time spent in each gait status
                 if gait_status == "Healthy":
-                    if last_gait_status != "Healthy":
+                    if last_gait_status != "Healthy" :
                         # If switching to healthy gait, record time spent in previous state
                         if unhealthy_start_time:
                             unhealthy_duration = time.time() - unhealthy_start_time
@@ -96,6 +96,17 @@ def process_video():
             else:
                 # Indicate that the spine is not horizontal
                 cv2.putText(frame_resized, "Spine: Not Horizontal", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+
+                # Stop the clocks if the spine is not horizontal
+                if healthy_start_time:
+                    # Add the elapsed time to total healthy time
+                    total_healthy_time += time.time() - healthy_start_time
+                    healthy_start_time = None  # Pause the timer
+        
+                if unhealthy_start_time:
+                    # Add the elapsed time to total unhealthy time
+                    total_unhealthy_time += time.time() - unhealthy_start_time
+                    unhealthy_start_time = None  # Pause the timer
 
         # Display the video frame
         cv2.imshow('Dog Spine and Gait Analysis', frame_resized)
