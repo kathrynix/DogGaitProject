@@ -3,7 +3,7 @@ import mediapipe as mp
 import time
 
 # Initialize video capture
-cap = cv2.VideoCapture('Dog_videos/IMG_5264.MOV')
+cap = cv2.VideoCapture('Dog_videos/Mala.mov')
 
 # Initialize MediaPipe pose detection
 mp_pose = mp.solutions.pose
@@ -45,12 +45,10 @@ def process_video():
     unhealthy_start_time = None
     last_gait_status = None
 
-    # Variables to accumulate total time in each state
     total_healthy_time = 0
     total_unhealthy_time = 0
-    total_spine_horizontal_time = 0  # Track total cumulative time the spine is horizontal
+    total_spine_horizontal_time = 0
 
-    # Variables to track whether the spine is currently horizontal
     spine_horizontal_start_time = None
 
     while cap.isOpened():
@@ -58,106 +56,92 @@ def process_video():
         if not ret:
             break
 
-        # Resize frame for faster processing (optional)
         frame_resized = cv2.resize(frame, (640, 480))
-
-        # Convert the frame to RGB for MediaPipe
         rgb_frame = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
-
-        # Process the image to identify pose landmarks
         result = pose.process(rgb_frame)
 
         if result.pose_landmarks:
-            # Check if the spine is horizontal
             if is_spine_horizontal(result.pose_landmarks.landmark):
-                # Start tracking time when the spine first becomes horizontal
                 if spine_horizontal_start_time is None:
                     spine_horizontal_start_time = time.time()
-                
-                # Draw landmarks and connections
+
                 mp_drawing.draw_landmarks(frame_resized, result.pose_landmarks, mp_pose.POSE_CONNECTIONS)
                 cv2.putText(frame_resized, "Spine: Horizontal", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
 
-                # Perform gait analysis and display the result
                 gait_status = analyze_gait(result.pose_landmarks.landmark)
                 cv2.putText(frame_resized, f'Gait: {gait_status}', (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
 
-                # Track the time spent in each gait status
+                # Gait Timing Logic
+                current_time = time.time()
+
                 if gait_status == "Healthy":
-                    if last_gait_status != "Healthy":
-                        # If switching to healthy gait, record time spent in previous state
-                        if unhealthy_start_time:
-                            unhealthy_duration = time.time() - unhealthy_start_time
-                            total_unhealthy_time += unhealthy_duration
-                        healthy_start_time = time.time()
-                    last_gait_status = "Healthy"
-                
+                    if last_gait_status == "Injured" and unhealthy_start_time is not None:
+                        total_unhealthy_time += current_time - unhealthy_start_time
+                        unhealthy_start_time = None
+
+                    if healthy_start_time is None:
+                        healthy_start_time = current_time
+
                 elif gait_status == "Injured":
-                    if last_gait_status != "Injured":
-                        # If switching to injured gait, record time spent in previous state
-                        if healthy_start_time:
-                            healthy_duration = time.time() - healthy_start_time
-                            total_healthy_time += healthy_duration
-                        unhealthy_start_time = time.time()
-                    last_gait_status = "Injured"
+                    if last_gait_status == "Healthy" and healthy_start_time is not None:
+                        total_healthy_time += current_time - healthy_start_time
+                        healthy_start_time = None
+
+                    if unhealthy_start_time is None:
+                        unhealthy_start_time = current_time
+
+                last_gait_status = gait_status
 
             else:
-                # If spine is no longer horizontal, accumulate the time spent horizontal
                 if spine_horizontal_start_time is not None:
                     total_spine_horizontal_time += time.time() - spine_horizontal_start_time
-                    spine_horizontal_start_time = None  # Reset the timer once it stops being horizontal
+                    spine_horizontal_start_time = None
 
-                # Indicate that the spine is not horizontal
+                if healthy_start_time:
+                    total_healthy_time += time.time() - healthy_start_time
+                    healthy_start_time = None
+
+                if unhealthy_start_time:
+                    total_unhealthy_time += time.time() - unhealthy_start_time
+                    unhealthy_start_time = None
+
                 cv2.putText(frame_resized, "Spine: Not Horizontal", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
 
-                # Stop the clocks if the spine is not horizontal
-                if healthy_start_time:
-                    # Add the elapsed time to total healthy time
-                    total_healthy_time += time.time() - healthy_start_time
-                    healthy_start_time = None  # Pause the timer
-        
-                if unhealthy_start_time:
-                    # Add the elapsed time to total unhealthy time
-                    total_unhealthy_time += time.time() - unhealthy_start_time
-                    unhealthy_start_time = None  # Pause the timer
-
-        # Display the video frame
         cv2.imshow('Dog Spine and Gait Analysis', frame_resized)
 
-        # Break the loop if 'q' is pressed
         if cv2.waitKey(10) & 0xFF == ord('q'):
             break
 
-    # Final update when video ends (if the spine was horizontal at the end of the video)
-    if spine_horizontal_start_time is not None:
-        total_spine_horizontal_time += time.time() - spine_horizontal_start_time
+    # Final Time Update
+    end_time = time.time()
+    if healthy_start_time:
+        total_healthy_time += end_time - healthy_start_time
+    if unhealthy_start_time:
+        total_unhealthy_time += end_time - unhealthy_start_time
+    if spine_horizontal_start_time:
+        total_spine_horizontal_time += end_time - spine_horizontal_start_time
 
-    # Print total time spent in each gait state
+    # Print Results
     print(f"\nTotal Healthy Gait Duration: {total_healthy_time:.2f} seconds")
     print(f"Total Unhealthy Gait Duration: {total_unhealthy_time:.2f} seconds")
-
-    # Print total time the spine was horizontal
     print(f"Total Time Dog Detected: {total_spine_horizontal_time:.2f} seconds")
 
-    # Check if cumulative spine horizontal time is less than 5 seconds
     if total_spine_horizontal_time < 5:
-        print("Inconclusive: Dog must be detected for a longer period of time to make analysis.")
+        print("Inconclusive: Dog must be detected for a longer period.")
     else:
-        # Final determination based on gait analysis
         total_time = total_healthy_time + total_unhealthy_time
-        try:
+        if total_time > 0:
             unhealthy_fraction = total_unhealthy_time / total_time
-        except ZeroDivisionError:
-            print("No dog was detected. Please try again.")
-            exit()
-        else:
             if unhealthy_fraction <= 0.2:
                 print('The dog is healthy')
             else:
-                print('The dog is injured. Please see a veterinarian for further review.')
+                print('The dog is injured. See a veterinarian.')
+        else:
+            print("No dog detected long enough for analysis.")
 
     cap.release()
     cv2.destroyAllWindows()
+
 
 if __name__ == "__main__":
     process_video()
