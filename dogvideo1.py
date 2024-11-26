@@ -1,9 +1,11 @@
 import cv2
 import mediapipe as mp
 import time
+import tkinter as tk
+from tkinter import messagebox
 
 # Initialize video capture
-cap = cv2.VideoCapture('Dog_videos/IMG_5398.MOV')
+cap = cv2.VideoCapture('Dog_videos/Mala.MOV')
 fps = cap.get(cv2.CAP_PROP_FPS)
 
 # Initialize MediaPipe pose detection
@@ -40,6 +42,32 @@ def analyze_gait(landmarks):
 
     # Check if legs are uneven and label the gait
     return "Injured" if abs(left_knee.y - right_knee.y) > leg_diff_threshold else "Healthy"
+
+def show_custom_popup(total_healthy_time, total_unhealthy_time, total_spine_horizontal_time):
+    # Create the Tkinter root window
+    root = tk.Tk()
+    root.withdraw()  # Hide the root window, only show the messagebox
+
+    # Prepare the message for the popup
+    result_message = f"Total Healthy Gait Duration: {total_healthy_time:.2f} seconds\n"
+    result_message += f"Total Unhealthy Gait Duration: {total_unhealthy_time:.2f} seconds\n"
+    result_message += f"Total Time Dog Detected: {total_spine_horizontal_time:.2f} seconds\n\n"
+
+    if total_spine_horizontal_time < 5:
+        result_message += "Inconclusive: Dog must be detected for a longer period."
+    else:
+        total_time = total_healthy_time + total_unhealthy_time
+        if total_time > 0:
+            unhealthy_fraction = total_unhealthy_time / total_time
+            if unhealthy_fraction <= 0.2:
+                result_message += 'The dog is healthy'
+            else:
+                result_message += 'The dog is injured. See a veterinarian.'
+        else:
+            result_message += "No dog detected long enough for analysis."
+
+    # Show the messagebox with the analysis results
+    messagebox.showinfo("Health Analysis Results", result_message)
 
 def process_video():
     healthy_start_time = None
@@ -128,23 +156,8 @@ def process_video():
     if spine_horizontal_start_time:
         total_spine_horizontal_time += end_time - spine_horizontal_start_time
 
-    # Print Results
-    print(f"\nTotal Healthy Gait Duration: {total_healthy_time:.2f} seconds")
-    print(f"Total Unhealthy Gait Duration: {total_unhealthy_time:.2f} seconds")
-    print(f"Total Time Dog Detected: {total_spine_horizontal_time:.2f} seconds")
-
-    if total_spine_horizontal_time < 5:
-        print("Inconclusive: Dog must be detected for a longer period.")
-    else:
-        total_time = total_healthy_time + total_unhealthy_time
-        if total_time > 0:
-            unhealthy_fraction = total_unhealthy_time / total_time
-            if unhealthy_fraction <= 0.2:
-                print('The dog is healthy')
-            else:
-                print('The dog is injured. See a veterinarian.')
-        else:
-            print("No dog detected long enough for analysis.")
+    # Show custom popup with results
+    show_custom_popup(total_healthy_time, total_unhealthy_time, total_spine_horizontal_time)
 
     cap.release()
     cv2.destroyAllWindows()
