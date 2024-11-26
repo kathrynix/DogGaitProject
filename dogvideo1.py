@@ -3,7 +3,8 @@ import mediapipe as mp
 import time
 
 # Initialize video capture
-cap = cv2.VideoCapture('Dog_videos/Mala.mov')
+cap = cv2.VideoCapture('Dog_videos/IMG_5398.MOV')
+fps = cap.get(cv2.CAP_PROP_FPS)
 
 # Initialize MediaPipe pose detection
 mp_pose = mp.solutions.pose
@@ -50,8 +51,11 @@ def process_video():
     total_spine_horizontal_time = 0
 
     spine_horizontal_start_time = None
+    frame_count = 0
 
     while cap.isOpened():
+        frame_count += 1
+        current_time = frame_count / fps  # Time in seconds based on frames
         ret, frame = cap.read()
         if not ret:
             break
@@ -63,49 +67,52 @@ def process_video():
         if result.pose_landmarks:
             if is_spine_horizontal(result.pose_landmarks.landmark):
                 if spine_horizontal_start_time is None:
-                    spine_horizontal_start_time = time.time()
-
+                    spine_horizontal_start_time = current_time
                 mp_drawing.draw_landmarks(frame_resized, result.pose_landmarks, mp_pose.POSE_CONNECTIONS)
                 cv2.putText(frame_resized, "Spine: Horizontal", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
-
                 gait_status = analyze_gait(result.pose_landmarks.landmark)
                 cv2.putText(frame_resized, f'Gait: {gait_status}', (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
-
-                # Gait Timing Logic
-                current_time = time.time()
-
                 if gait_status == "Healthy":
-                    if last_gait_status == "Injured" and unhealthy_start_time is not None:
-                        total_unhealthy_time += current_time - unhealthy_start_time
-                        unhealthy_start_time = None
-
                     if healthy_start_time is None:
                         healthy_start_time = current_time
-
+                    if unhealthy_start_time is not None:
+                        total_unhealthy_time += current_time - unhealthy_start_time
+                        unhealthy_start_time = None
                 elif gait_status == "Injured":
-                    if last_gait_status == "Healthy" and healthy_start_time is not None:
+                    if unhealthy_start_time is None:
+                        unhealthy_start_time = current_time
+                    if healthy_start_time is not None:
                         total_healthy_time += current_time - healthy_start_time
                         healthy_start_time = None
 
-                    if unhealthy_start_time is None:
-                        unhealthy_start_time = current_time
-
                 last_gait_status = gait_status
-
             else:
                 if spine_horizontal_start_time is not None:
-                    total_spine_horizontal_time += time.time() - spine_horizontal_start_time
+                    total_spine_horizontal_time += current_time - spine_horizontal_start_time
                     spine_horizontal_start_time = None
 
-                if healthy_start_time:
-                    total_healthy_time += time.time() - healthy_start_time
+                if healthy_start_time is not None:
+                    total_healthy_time += current_time - healthy_start_time
                     healthy_start_time = None
 
-                if unhealthy_start_time:
-                    total_unhealthy_time += time.time() - unhealthy_start_time
+                if unhealthy_start_time is not None:
+                    total_unhealthy_time += current_time - unhealthy_start_time
                     unhealthy_start_time = None
-
                 cv2.putText(frame_resized, "Spine: Not Horizontal", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+
+        else:
+            # If no landmarks detected, reset spine and gait timings
+            if spine_horizontal_start_time is not None:
+                total_spine_horizontal_time += current_time - spine_horizontal_start_time
+                spine_horizontal_start_time = None
+
+            if healthy_start_time is not None:
+                total_healthy_time += current_time - healthy_start_time
+                healthy_start_time = None
+
+            if unhealthy_start_time is not None:
+                total_unhealthy_time += current_time - unhealthy_start_time
+                unhealthy_start_time = None
 
         cv2.imshow('Dog Spine and Gait Analysis', frame_resized)
 
@@ -113,7 +120,7 @@ def process_video():
             break
 
     # Final Time Update
-    end_time = time.time()
+    end_time = current_time
     if healthy_start_time:
         total_healthy_time += end_time - healthy_start_time
     if unhealthy_start_time:
